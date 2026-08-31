@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { MessagesSquare, Sparkles, X, FileText, Loader2, SendHorizonal } from "lucide-react";
+import { MessagesSquare, Sparkles, FileText, Loader2, SendHorizonal } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
+import { DocModal } from "@/components/doc-modal";
+import { SAMPLE_DOCS } from "@/lib/sample-docs";
 
 export const Route = createFileRoute("/ask")({
   head: () => ({
@@ -41,6 +43,27 @@ interface Answer {
 
 const PRESETS: { chip: string; answer: Answer }[] = [
   {
+    chip: "What is the reserve estimate for Talcher Coalfield?",
+    answer: {
+      question: "What is the reserve estimate for Talcher Coalfield?",
+      segments: [
+        "Approximately 705 million tonnes (indicated + inferred), based on 1997-98 exploratory drilling across BH-101 to BH-149.",
+        { citation: 0 },
+      ],
+      citations: [
+        {
+          label: "GSI Report GSI/TC/1998-99/EX-07",
+          doc: SAMPLE_DOCS.archive.file,
+          page: "Cover sheet · Summary of Findings",
+          highlight:
+            "Reserve estimate (indicated + inferred) placed at approximately 705 million tonnes, subject to revision upon further exploration density improvement.",
+          context:
+            "Exploratory drilling across the block confirms lateral continuity of Seam-IV over an estimated strike length of 6.2 km, with average thickness of 4.8m.",
+        },
+      ],
+    },
+  },
+  {
     chip: "What was the production trend in 2023-24?",
     answer: {
       question: "What was the production trend in 2023-24?",
@@ -50,8 +73,8 @@ const PRESETS: { chip: string; answer: Answer }[] = [
       ],
       citations: [
         {
-          label: "Annual Report FY23-24, p.12",
-          doc: "CIL_Annual_Report_FY23-24.pdf",
+          label: "CMPDI Production Report, p.1",
+          doc: SAMPLE_DOCS.production.file,
           page: "Page 12 · Consolidated Performance Summary",
           highlight:
             "Total coal production increased from 703.2 MT in FY 2022-23 to 773.8 MT in FY 2023-24, registering a growth of 10.0% over the previous year.",
@@ -71,8 +94,8 @@ const PRESETS: { chip: string; answer: Answer }[] = [
       ],
       citations: [
         {
-          label: "GR_NCL_Amlohri_2024.pdf, p.31",
-          doc: "GR_NCL_Amlohri_2024.pdf",
+          label: "CMPDI Production Report, p.1",
+          doc: SAMPLE_DOCS.production.file,
           page: "Page 31 · Section 5.3 Reserve Estimation",
           highlight:
             "The gross geological reserve of the Amlohri block is estimated at 412.6 MT as on 01.04.2024, of which 224.1 MT is considered extractable under the current mine plan.",
@@ -92,8 +115,8 @@ const PRESETS: { chip: string; answer: Answer }[] = [
       ],
       citations: [
         {
-          label: "CIL_Annual_Report_FY24-25.pdf, p.14",
-          doc: "CIL_Annual_Report_FY24-25.pdf",
+          label: "Production Master Sheet, FY24-25",
+          doc: SAMPLE_DOCS.spreadsheet.file,
           page: "Page 14 · Subsidiary-wise Production",
           highlight:
             "Mahanadi Coalfields Limited led subsidiary production with 221.1 MT, followed by South Eastern Coalfields Limited at 208.4 MT and Central Coalfields Limited at 105.2 MT.",
@@ -171,11 +194,9 @@ function AskPage() {
                       typeof seg === "string" ? (
                         <span key={i}>{seg} </span>
                       ) : (
-                        <button
+                   <button
                           key={i}
-                          onClick={() =>
-                            setModalCitation({ answer: m, citation: m.citations[seg.citation]! })
-                          }
+                           onClick={() => setModalCitation({ answer: m, citation: m.citations[seg.citation] })}
                           className="mx-0.5 inline-flex items-center gap-1 rounded-full border border-primary/40 bg-accent/40 px-2 py-0.5 align-baseline text-xs font-medium text-primary transition-colors hover:bg-accent"
                         >
                           <FileText className="size-3" />
@@ -239,39 +260,12 @@ function AskPage() {
 
       {/* Citation modal */}
       {modalCitation ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-navy/70 p-4"
-          onClick={() => setModalCitation(null)}
-        >
-          <div
-            className="w-full max-w-lg rounded-md border border-border bg-card shadow-lg"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3.5">
-              <div className="flex items-center gap-2">
-                <FileText className="size-4 text-primary" />
-                <p className="font-mono text-xs text-foreground">{modalCitation.citation.doc}</p>
-              </div>
-              <button
-                onClick={() => setModalCitation(null)}
-                aria-label="Close preview"
-                className="rounded-sm p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
-            <div className="px-5 py-4">
-              <p className="label-caps text-muted-foreground">{modalCitation.citation.page}</p>
-              <div className="mt-3 space-y-2 text-xs leading-relaxed text-muted-foreground">
-                <p>{modalCitation.citation.context}</p>
-                <p className="rounded-sm border-l-2 border-warning bg-accent/40 px-3 py-2.5 font-medium text-foreground">
-                  {modalCitation.citation.highlight}
-                </p>
-                <p>…figures are provisional until the audited results are tabled…</p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <DocModal
+          doc={modalCitation.citation.doc.includes("GSI") ? SAMPLE_DOCS.archive : modalCitation.citation.doc.includes("Master") ? SAMPLE_DOCS.spreadsheet : SAMPLE_DOCS.production}
+          citation={modalCitation.citation.label}
+          note={`${modalCitation.citation.context} ${modalCitation.citation.highlight}`}
+          onClose={() => setModalCitation(null)}
+        />
       ) : null}
     </AppShell>
   );
