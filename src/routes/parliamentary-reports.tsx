@@ -3,6 +3,8 @@ import { Landmark, FileText, FileDown, CheckCircle2, Loader2, Quote } from "luci
 import { useRef, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
+import { DocModal } from "@/components/doc-modal";
+import { resolveDoc, type SampleDoc } from "@/lib/sample-docs";
 
 export const Route = createFileRoute("/parliamentary-reports")({
   head: () => ({
@@ -143,6 +145,7 @@ function ParliamentaryReports() {
   const [loading, setLoading] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [sent, setSent] = useState(false);
+  const [modalDoc, setModalDoc] = useState<{ doc: SampleDoc; citation: string } | null>(null);
   const timer = useRef<number | undefined>(undefined);
 
   function onSelect(value: string) {
@@ -256,7 +259,14 @@ function ParliamentaryReports() {
                   <li key={c.label} className="flex items-start gap-2 text-sm">
                     <Quote className="mt-0.5 size-3.5 shrink-0 text-primary" />
                     <div>
-                      <p className="font-medium text-foreground">{c.label}</p>
+                      <button
+                        type="button"
+                        onClick={() => setModalDoc({ doc: resolveDoc(c.label), citation: c.label })}
+                        className="inline-flex max-w-full items-center gap-1 rounded-full border border-primary/40 bg-accent/30 px-2 py-0.5 text-left text-xs font-medium text-primary transition-colors hover:bg-accent"
+                      >
+                        <FileText className="size-3 shrink-0" />
+                        {c.label}
+                      </button>
                       <p className="text-xs text-muted-foreground">{c.detail}</p>
                     </div>
                   </li>
@@ -308,6 +318,13 @@ function ParliamentaryReports() {
           </div>
         </div>
       )}
+      {modalDoc ? (
+        <DocModal
+          doc={modalDoc.doc}
+          citation={modalDoc.citation}
+          onClose={() => setModalDoc(null)}
+        />
+      ) : null}
     </AppShell>
   );
 }
