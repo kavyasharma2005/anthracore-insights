@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
-  UploadCloud,
+  ArrowUpRight,
   CheckCircle2,
   Loader2,
   Circle,
@@ -11,6 +11,8 @@ import {
 import { useEffect, useRef, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
+import { DocModal } from "@/components/doc-modal";
+import { SAMPLE_DOCS, type SampleDoc } from "@/lib/sample-docs";
 
 export const Route = createFileRoute("/upload")({
   head: () => ({
@@ -42,44 +44,58 @@ const PIPELINE_STEPS = [
   "Confidence scoring...",
 ];
 
-interface ExtractedField {
-  field: string;
-  value: string;
-  source: string;
-  confidence: number;
-}
-
-const EXTRACTED_FIELDS: ExtractedField[] = [
+const PRESET_DOCS: Array<{ doc: SampleDoc; label: string; type: string; summary: string }> = [
   {
-    field: "Mine Name",
-    value: "Amlohri Open Cast Project",
-    source: "p. 12 · Table 3.2",
-    confidence: 97,
+    doc: SAMPLE_DOCS.production,
+    label: "CMPDI Production Report",
+    type: "PDF",
+    summary: "Gevra OC Project · monthly production table",
   },
   {
-    field: "Production MT",
-    value: "14.20 MT (2025-26 target)",
-    source: "p. 47 · Para 4.1.2",
-    confidence: 93,
+    doc: SAMPLE_DOCS.spreadsheet,
+    label: "Production Master Sheet",
+    type: "XLSX",
+    summary: "FY24-25 · subsidiary production and reserves",
   },
   {
-    field: "Period",
-    value: "April 2025 – March 2026",
-    source: "p. 8 · Cover sheet",
-    confidence: 89,
-  },
-  {
-    field: "Grade",
-    value: "Grade C / UG-III — needs historical check",
-    source: "p. 51 · Annexure VII (blurry scan)",
-    confidence: 62,
+    doc: SAMPLE_DOCS.archive,
+    label: "GSI 1998 Archive Scan",
+    type: "PDF",
+    summary: "Talcher Coalfield · regional exploration report",
   },
 ];
 
+const PRODUCTION_ROWS = [
+  ["Apr-24", "4.82", "G8", "6.10", "1.27"],
+  ["May-24", "5.01", "G8", "6.44", "1.29"],
+  ["Jun-24", "3.95", "G9", "5.02", "1.27"],
+  ["Jul-24", "3.41", "G9", "4.61", "1.35"],
+  ["Aug-24", "3.88", "G8", "5.10", "1.31"],
+  ["Sep-24", "4.15", "G8", "5.44", "1.31"],
+  ["Oct-24", "5.22", "G8", "6.70", "1.28"],
+  ["Nov-24", "5.60", "G7", "7.20", "1.29"],
+  ["Dec-24", "5.74", "G7", "7.35", "1.28"],
+  ["Jan-25", "5.88", "G7", "7.55", "1.28"],
+  ["Feb-25", "5.10", "G8", "6.55", "1.28"],
+] as const;
+
+const MASTER_ROWS = [
+  ["ECL", "Rajmahal OC", "3.42", "G11", "412.5", "Active"],
+  ["BCCL", "Kusunda", "1.15", "G6", "88.2", "Active"],
+  ["CCL", "Ashoka OCP", "6.78", "G9", "560.0", "Active"],
+  ["SECL", "Gevra OC", "5.10", "G8", "1240.0", "Active"],
+  ["MCL", "Bharatpur OCP", "7.90", "G10", "980.4", "Active"],
+  ["NCL", "Jayant Project", "4.55", "G8", "705.3", "Active"],
+  ["WCL", "Umrer Colliery", "0.82", "G12", "64.1", "Under Review"],
+  ["SECL", "Kusmunda OC", "19.2", "G9", "1875.6", "Active"],
+] as const;
+
 function UploadPage() {
+  const [selected, setSelected] = useState<SampleDoc | null>(null);
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(false);
   const [step, setStep] = useState(0);
+  const [modalDoc, setModalDoc] = useState<SampleDoc | null>(null);
   const timers = useRef<number[]>([]);
 
   useEffect(() => {
@@ -88,8 +104,10 @@ function UploadPage() {
     };
   }, []);
 
-  function startPipeline() {
+  function startPipeline(doc: SampleDoc) {
+    if (running) return;
     timers.current.forEach(clearTimeout);
+    setSelected(doc);
     setRunning(true);
     setDone(false);
     setStep(0);
@@ -125,34 +143,45 @@ function UploadPage() {
       breadcrumb="Upload & Process"
 >
       <div className="grid gap-4 lg:grid-cols-5">
-        {/* Upload / pipeline column */}
         <div className="space-y-4 lg:col-span-3">
-          <div className="rounded-md border border-dashed border-border bg-card px-6 py-12 text-center shadow-[var(--shadow-card)]">
-            <span className="mx-auto flex size-12 items-center justify-center rounded-sm bg-accent/15">
-              <UploadCloud className="size-6 text-primary" />
-            </span>
-            <p className="mt-4 text-sm font-semibold text-foreground">
-              Drag & drop geological reports, borehole logs or mine plans
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              PDF, TIFF or scanned images · up to 500 MB per file
-            </p>
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-              <button
-                onClick={running ? undefined : startPipeline}
-                disabled={running}
-                className="inline-flex items-center gap-1.5 rounded-sm bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
-              >
-                {running ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <UploadCloud className="size-4" />
-                )}
-                Upload Sample Report
-              </button>
-              <span className="text-xs text-muted-foreground">
-                Demo preset: <span className="font-mono">GR_Amlohri_OCP_Annual_2025.pdf</span>
-              </span>
+          <div className="rounded-md border border-border bg-card p-5 shadow-[var(--shadow-card)]">
+            <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
+              <div>
+                <p className="label-caps text-primary">Demo document set</p>
+                <h2 className="mt-1 text-base font-semibold text-foreground">Choose a source to process</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Select a supplied sample to run the extraction pipeline against its real layout.
+                </p>
+              </div>
+              {running ? <Loader2 className="size-5 animate-spin text-primary" /> : null}
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              {PRESET_DOCS.map(({ doc, label, type, summary }) => (
+                <button
+                  key={doc.key}
+                  type="button"
+                  disabled={running}
+                  onClick={() => startPipeline(doc)}
+                  className={`group overflow-hidden rounded-sm border text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                    selected?.key === doc.key
+                      ? "border-primary bg-accent/20"
+                      : "border-border hover:border-primary/60 hover:bg-accent/10"
+                  }`}
+                >
+                  <div className="relative aspect-[4/3] overflow-hidden border-b border-border bg-secondary">
+                    <img src={doc.url} alt={`${label} thumbnail`} className="size-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.03]" loading="lazy" />
+                    <span className="absolute right-2 top-2 rounded-sm bg-card/90 px-1.5 py-0.5 font-mono text-[0.625rem] font-semibold text-foreground">{type}</span>
+                  </div>
+                  <div className="p-3">
+                    <p className="text-sm font-semibold leading-snug text-foreground">{label}</p>
+                    <p className="mt-1.5 text-[0.6875rem] leading-relaxed text-muted-foreground">{summary}</p>
+                    <span className="mt-3 inline-flex items-center gap-1 text-[0.6875rem] font-semibold text-primary">
+                      {selected?.key === doc.key ? "Selected" : "Run extraction"}
+                      <ArrowUpRight className="size-3" />
+                    </span>
+                  </div>
+                </button>
+              ))}
             </div>
           </div>
 
@@ -162,7 +191,7 @@ function UploadPage() {
                 <div className="flex items-center gap-2">
                   <FileText className="size-4 text-primary" />
                   <p className="font-mono text-xs text-foreground">
-                    GR_Amlohri_OCP_Annual_2025.pdf · 412 pages
+                    {selected?.file}
                   </p>
                 </div>
                 <span className="font-mono text-xs font-semibold text-foreground">
@@ -211,14 +240,14 @@ function UploadPage() {
 
         {/* Results column */}
         <div className="lg:col-span-2">
-          {done ? (
+          {done && selected ? (
             <div className="rounded-md border border-border bg-card shadow-[var(--shadow-card)]">
               <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3.5">
                 <div>
-                  <h2 className="text-sm font-semibold text-foreground">Extraction Results</h2>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    4 fields extracted · 1 needs review
-                  </p>
+                     <h2 className="text-sm font-semibold text-foreground">Extraction Results</h2>
+                     <p className="mt-0.5 text-xs text-muted-foreground">
+                       {selected.key === "production" ? "11 monthly rows extracted · 1 needs review" : selected.key === "spreadsheet" ? "8 subsidiary rows extracted · 1 needs review" : "4 archive fields extracted · source linked"}
+                     </p>
                 </div>
                 <button
                   onClick={reset}
@@ -228,66 +257,37 @@ function UploadPage() {
                   Re-run
                 </button>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="label-caps px-5 py-2.5 text-muted-foreground">Field</th>
-                      <th className="label-caps px-3 py-2.5 text-muted-foreground">Value</th>
-                      <th className="label-caps px-5 py-2.5 text-right text-muted-foreground">
-                        Confidence
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {EXTRACTED_FIELDS.map((f) => {
-                      const low = f.confidence < 80;
-                      return (
-                        <tr
-                          key={f.field}
-                          className={
-                            low
-                              ? "border-b border-border bg-warning/5 last:border-0"
-                              : "border-b border-border last:border-0"
-                          }
-                        >
-                          <td className="px-5 py-3 align-top text-xs font-medium text-foreground">
-                            {f.field}
-                          </td>
-                          <td className="px-3 py-3 align-top">
-                            <p className="text-xs text-foreground">{f.value}</p>
-                            <p className="mt-0.5 font-mono text-[0.6875rem] text-muted-foreground">
-                              {f.source}
-                            </p>
-                          </td>
-                          <td className="px-5 py-3 text-right align-top">
-                            <span
-                              className={`inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[0.6875rem] font-semibold ${
-                                low
-                                  ? "bg-warning/15 text-warning"
-                                  : "bg-success/10 text-success"
-                              }`}
-                            >
-                              {f.confidence}%
-                            </span>
-                            {low ? (
-                              <span className="mt-1.5 flex items-center justify-end gap-1 text-[0.6875rem] font-medium text-warning">
-                                <TriangleAlert className="size-3" />
-                                Needs Review
-                              </span>
-                            ) : null}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+               {selected.key === "production" ? (
+                 <div className="overflow-x-auto">
+                   <table className="w-full min-w-[560px] text-sm">
+                     <thead><tr className="border-b border-border text-left">{["Month", "Production (MT)", "Grade", "OB Removal (Mcum)", "Stripping Ratio"].map((h) => <th key={h} className="label-caps px-4 py-2.5 text-muted-foreground">{h}</th>)}</tr></thead>
+                     <tbody>{PRODUCTION_ROWS.map((row) => { const review = row[0] === "Feb-25"; return <tr key={row[0]} className={`border-b border-border last:border-0 ${review ? "bg-warning/10" : ""}`}>
+                       {row.map((cell, i) => <td key={i} className={`px-4 py-2.5 font-mono text-xs ${review && (i === 1 || i === 3) ? "font-semibold text-warning" : "text-foreground"}`}>{review && (i === 1 || i === 3) ? `${cell} *` : cell}</td>)}
+                       </tr>; })}</tbody>
+                   </table>
+                 </div>
+               ) : selected.key === "spreadsheet" ? (
+                 <div className="overflow-x-auto">
+                   <table className="w-full min-w-[620px] text-sm">
+                     <thead><tr className="border-b border-border text-left">{["Subsidiary", "Mine Name", "Production (MT)", "Grade", "Reserves (MT)", "Status"].map((h) => <th key={h} className="label-caps px-4 py-2.5 text-muted-foreground">{h}</th>)}</tr></thead>
+                     <tbody>{MASTER_ROWS.map((row) => { const review = row[0] === "WCL"; return <tr key={row[1]} className={`border-b border-border last:border-0 ${review ? "bg-warning/10" : ""}`}>
+                       {row.map((cell, i) => <td key={i} className={`px-4 py-2.5 text-xs ${review ? "text-warning" : "text-foreground"} ${i === 2 || i === 4 ? "font-mono" : ""}`}>{cell}</td>)}
+                       </tr>; })}</tbody>
+                   </table>
+                 </div>
+               ) : (
+                 <div className="grid gap-3 p-5 sm:grid-cols-2">
+                   {["Regional Exploration Report", "Survey Period", "Borehole Series", "Reserve Estimate"].map((field, i) => <div key={field} className="border-b border-border pb-3 last:border-0 sm:last:border-b-0">
+                     <p className="label-caps text-muted-foreground">{field}</p>
+                     <p className="mt-1 text-sm font-medium text-foreground">{["Talcher Coalfield", "Nov 1997 – Mar 1998", "BH-101 to BH-149", "Approximately 705 MT"][i]}</p>
+                   </div>)}
+                 </div>
+               )}
               <div className="border-t border-border px-5 py-3.5">
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  Fields below 80% confidence are routed to geologist review before being written
-                  to the validated corpus.
-                </p>
+                 <div className="flex flex-wrap items-center justify-between gap-3">
+                   <p className="text-xs leading-relaxed text-muted-foreground">{selected.key === "archive" ? "Archive fields were extracted from the scanned cover sheet." : "Amber rows are routed to geologist review before being written to the validated corpus."}</p>
+                   <button type="button" onClick={() => setModalDoc(selected)} className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-accent/30 px-2.5 py-1 text-[0.6875rem] font-medium text-primary transition-colors hover:bg-accent"><FileText className="size-3" />[Source: {selected.ref.split(" · ")[0]}]</button>
+                 </div>
               </div>
             </div>
           ) : (
@@ -299,6 +299,7 @@ function UploadPage() {
           )}
         </div>
       </div>
+      {modalDoc ? <DocModal doc={modalDoc} citation={modalDoc.ref} onClose={() => setModalDoc(null)} /> : null}
     </AppShell>
   );
 }
