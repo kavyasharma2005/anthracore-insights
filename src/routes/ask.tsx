@@ -190,20 +190,21 @@ function AskPage() {
                     <Sparkles className="size-3.5 text-primary" />
                   </span>
                   <div className="max-w-[85%] rounded-md rounded-bl-sm border border-border bg-background px-3.5 py-2.5 text-sm leading-relaxed text-foreground">
-                    {m.segments.map((seg, i) =>
-                      typeof seg === "string" ? (
-                        <span key={i}>{seg} </span>
-                      ) : (
-                   <button
+                    {m.segments.map((seg, i) => {
+                      if (typeof seg === "string") return <span key={i}>{seg} </span>;
+                      const citation = m.citations[seg.citation];
+                      if (!citation) return null;
+                      return (
+                        <button
                           key={i}
-                           onClick={() => setModalCitation({ answer: m, citation: m.citations[seg.citation] })}
+                          onClick={() => setModalCitation({ answer: m, citation })}
                           className="mx-0.5 inline-flex items-center gap-1 rounded-full border border-primary/40 bg-accent/40 px-2 py-0.5 align-baseline text-xs font-medium text-primary transition-colors hover:bg-accent"
                         >
                           <FileText className="size-3" />
-                          [Source: {m.citations[seg.citation]!.label}]
+                          [Source: {citation.label}]
                         </button>
-                      ),
-                    )}
+                      );
+                    })}
                   </div>
                 </div>
               </div>
