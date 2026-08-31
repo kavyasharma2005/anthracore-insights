@@ -1,0 +1,4 @@
+- [ ] Build preset upload cards with thumbnails and document-specific extraction results
+- [ ] Add Talcher reserve question and document-backed citation modal
+- [ ] Make all source citations clickable across answer and report screens
+- [ ] Verify routes, interactions, and build health
